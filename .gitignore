@@ -6,6 +6,31 @@ yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 
+# Kotlin / Java / Gradle
+.kotlin/
+.idea/
+.gradle/
+build/
+**/build/
+bin/
+*.class
+*.jar
+!**/gradle/wrapper/gradle-wrapper.jar
+*.war
+*.ear
+hs_err_pid*
+replay_pid*
+
+# Backend configuration and secrets
+application-secret.yml
+application-secret.yaml
+application-local.yml
+application-local.yaml
+**/application-secret.yml
+**/application-secret.yaml
+**/application-local.yml
+**/application-local.yaml
+
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
@@ -39,6 +64,7 @@ build/Release
 
 # Dependency directories
 node_modules/
+**/node_modules/
 jspm_packages/
 
 # Snowpack dependency directory (https://snowpack.dev/)
@@ -81,6 +107,7 @@ out
 # Nuxt.js build / generate output
 .nuxt
 dist
+**/dist/
 .output
 
 # Gatsby files
