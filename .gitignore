@@ -1,3 +1,6 @@
+# Local test
+/test-video/
+
 # Logs
 logs
 *.log
