@@ -1,0 +1,197 @@
+openapi: 3.0.3
+info:
+  title: Video-to-GIF Trim Editor API
+  version: 0.1.0
+  description: >
+    Backend contract for the MVP video trim/GIF editor (feature 001-gif-trim-editor).
+    All endpoints are served under the existing Ktor backend, proxied by the frontend
+    dev server at /api/*.
+servers:
+  - url: /api
+paths:
+  /videos:
+    post:
+      summary: Upload a video and register it for editing
+      operationId: uploadVideo
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Video accepted and stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Video'
+        '400':
+          description: Uploaded file is not a valid/supported video (FR-001a)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /videos/{videoId}/gif:
+    post:
+      summary: Start an asynchronous GIF generation job for the given selection range (FR-005, FR-006b)
+      operationId: startGifGeneration
+      parameters:
+        - $ref: '#/components/parameters/VideoId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SelectionRange'
+      responses:
+        '202':
+          description: Job accepted; poll GET /jobs/{jobId} for status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobAccepted'
+        '400':
+          description: Invalid selection range (violates FR-008 — too short, or start >= end)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Unknown videoId
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: A generation job is already active for this video (client should not normally send this — Generate is disabled while a job is in progress per FR-011a)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /jobs/{jobId}:
+    get:
+      summary: Poll the status of a generation job (FR-006b, FR-011)
+      operationId: getJobStatus
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Current job status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatus'
+        '404':
+          description: Unknown jobId
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /gifs/{gifId}:
+    get:
+      summary: Fetch the generated GIF binary, used for both preview (<img src>) and download (FR-006, FR-007)
+      operationId: getGif
+      parameters:
+        - name: gifId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The GIF file
+          content:
+            image/gif:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Unknown gifId
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  parameters:
+    VideoId:
+      name: videoId
+      in: path
+      required: true
+      schema:
+        type: string
+
+  schemas:
+    Video:
+      type: object
+      required: [videoId, durationSeconds]
+      properties:
+        videoId:
+          type: string
+        durationSeconds:
+          type: number
+          format: double
+          description: Used by the client to size the trim range control and default the selection to [0, durationSeconds] (FR-005a)
+
+    SelectionRange:
+      type: object
+      required: [startSeconds, endSeconds]
+      properties:
+        startSeconds:
+          type: number
+          format: double
+          minimum: 0
+        endSeconds:
+          type: number
+          format: double
+      description: >
+        Server MUST re-validate startSeconds < endSeconds and (endSeconds - startSeconds) >= 1.0
+        (FR-008) even though the client-side control also prevents invalid states.
+
+    JobAccepted:
+      type: object
+      required: [jobId, status]
+      properties:
+        jobId:
+          type: string
+        status:
+          type: string
+          enum: [pending]
+
+    JobStatus:
+      type: object
+      required: [jobId, status]
+      properties:
+        jobId:
+          type: string
+        status:
+          type: string
+          enum: [pending, processing, succeeded, failed]
+        gifId:
+          type: string
+          nullable: true
+          description: Present only when status = succeeded
+        errorMessage:
+          type: string
+          nullable: true
+          description: Present only when status = failed; safe to display inline (FR-012)
+
+    ErrorResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
